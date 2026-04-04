@@ -1,0 +1,70 @@
+# =========================
+# OS / Editor
+# =========================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+.vscode/
+.idea/
+
+# =========================
+# Logs
+# =========================
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# Frontend (Node/Vite)
+# =========================
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+frontend/.cache/
+
+# =========================
+# Backend (Python/Django)
+# =========================
+**/__pycache__/
+**/*.py[cod]
+**/*.pyo
+**/*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+.venv/
+venv/
+env/
+
+# Django local artifacts
+**/db.sqlite3
+**/staticfiles/
+**/media/
+
+# =========================
+# Build / Temp
+# =========================
+build/
+dist/
+.tmp/
+tmp/
+
+# =========================
+# GitHub / CI local leftovers
+# =========================
+coverage.xml
+*.coverage

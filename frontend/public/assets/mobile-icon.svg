@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Mobile icon">
+  <rect width="128" height="128" rx="20" fill="#111827"/>
+  <rect x="42" y="16" width="44" height="96" rx="10" fill="#1f2937" stroke="#34d399" stroke-width="4"/>
+  <rect x="49" y="24" width="30" height="62" rx="4" fill="#0b1220"/>
+  <circle cx="64" cy="98" r="4" fill="#34d399"/>
+</svg>

@@ -1,0 +1,188 @@
+services:
+  gateway-service:
+    build: ./gateway-service
+    container_name: gateway-service
+    ports:
+      - "8080:80"
+    environment:
+      PC_SERVICE_URL: http://pc-service:8000
+    depends_on:
+      - ai-service
+      - customer-service
+      - staff-service
+      - laptop-service
+      - mobile-service
+      - pc-service
+
+
+
+  customer-service:
+    build: ./customer-service
+    container_name: customer-service
+    environment:
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+      DB_ENGINE: ${CUSTOMER_DB_ENGINE:-mysql}
+      DB_NAME: ${CUSTOMER_DB_NAME:-customer_db}
+      DB_USER: ${CUSTOMER_DB_USER:-appuser}
+      DB_PASSWORD: ${CUSTOMER_DB_PASSWORD:-apppass}
+      DB_HOST: ${CUSTOMER_DB_HOST:-mysql-db}
+      DB_PORT: ${CUSTOMER_DB_PORT:-3306}
+    depends_on:
+      - mysql-db
+
+  staff-service:
+    build: ./staff-service
+    container_name: staff-service
+    environment:
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+      DB_ENGINE: ${STAFF_DB_ENGINE:-mysql}
+      DB_NAME: ${STAFF_DB_NAME:-staff_db}
+      DB_USER: ${STAFF_DB_USER:-appuser}
+      DB_PASSWORD: ${STAFF_DB_PASSWORD:-apppass}
+      DB_HOST: ${STAFF_DB_HOST:-mysql-db}
+      DB_PORT: ${STAFF_DB_PORT:-3306}
+      LAPTOP_SERVICE_URL: http://laptop-service:8000
+      MOBILE_SERVICE_URL: http://mobile-service:8000
+      PC_SERVICE_URL: http://pc-service:8000
+    depends_on:
+      - mysql-db
+
+  laptop-service:
+    build: ./laptop-service
+    container_name: laptop-service
+    environment:
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+      DB_ENGINE: ${LAPTOP_DB_ENGINE:-postgres}
+      DB_NAME: ${LAPTOP_DB_NAME:-laptop_db}
+      DB_USER: ${LAPTOP_DB_USER:-appuser}
+      DB_PASSWORD: ${LAPTOP_DB_PASSWORD:-apppass}
+      DB_HOST: ${LAPTOP_DB_HOST:-postgres-db}
+      DB_PORT: ${LAPTOP_DB_PORT:-5432}
+    depends_on:
+      - postgres-db
+
+  mobile-service:
+    build: ./mobile-service
+    container_name: mobile-service
+    environment:
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+      DB_ENGINE: ${MOBILE_DB_ENGINE:-postgres}
+      DB_NAME: ${MOBILE_DB_NAME:-mobile_db}
+      DB_USER: ${MOBILE_DB_USER:-appuser}
+      DB_PASSWORD: ${MOBILE_DB_PASSWORD:-apppass}
+      DB_HOST: ${MOBILE_DB_HOST:-postgres-db}
+      DB_PORT: ${MOBILE_DB_PORT:-5432}
+    depends_on:
+      - postgres-db
+
+  pc-service:
+    build: ./pc-service
+    container_name: pc-service
+    environment:
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
+      DB_ENGINE: ${PC_DB_ENGINE:-postgres}
+      DB_NAME: ${PC_DB_NAME:-pc_db}
+      DB_USER: ${PC_DB_USER:-appuser}
+      DB_PASSWORD: ${PC_DB_PASSWORD:-apppass}
+      DB_HOST: ${PC_DB_HOST:-postgres-db}
+      DB_PORT: ${PC_DB_PORT:-5432}
+    depends_on:
+      - postgres-db
+
+  mysql-db:
+    image: mysql:8.0
+    container_name: mysql-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-customer_db}
+      MYSQL_USER: ${MYSQL_USER:-appuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-apppass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db-init/mysql:/docker-entrypoint-initdb.d
+
+  postgres-db:
+    image: postgres:16
+    container_name: postgres-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-laptop_db}
+      POSTGRES_USER: ${POSTGRES_USER:-appuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apppass}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db-init/postgres:/docker-entrypoint-initdb.d
+
+  redis-db:
+    image: redis:alpine
+    container_name: redis-cache
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  cart-service:
+    build: ./cart-service
+    container_name: cart-service
+    environment:
+      REDIS_HOST: redis-db
+    depends_on:
+      - redis-db
+
+  order-service:
+    build: ./order-service
+    container_name: order-service
+    environment:
+      DB_HOST: postgres-db
+      INVENTORY_SERVICE_URL: http://inventory-service:8000
+      PAYMENT_SERVICE_URL: http://payment-service:8000
+      LAPTOP_SERVICE_URL: http://laptop-service:8000
+      MOBILE_SERVICE_URL: http://mobile-service:8000
+      PC_SERVICE_URL: http://pc-service:8000
+      CART_SERVICE_URL: http://cart-service:8000
+    depends_on:
+      - inventory-service
+      - payment-service
+      - postgres-db
+      - pc-service
+
+  ai-service:
+    build: ./ai-service
+    container_name: ai-service
+    environment:
+      CART_SERVICE_URL: http://cart-service:8000
+      ORDER_SERVICE_URL: http://order-service:8000
+      LAPTOP_SERVICE_URL: http://laptop-service:8000
+      MOBILE_SERVICE_URL: http://mobile-service:8000
+      PC_SERVICE_URL: http://pc-service:8000
+    depends_on:
+      - cart-service
+      - order-service
+      - laptop-service
+      - mobile-service
+      - pc-service
+
+  inventory-service:
+    build: ./inventory-service
+    container_name: inventory-service
+    environment:
+      DB_HOST: postgres-db
+    depends_on:
+      - postgres-db
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    environment:
+      DB_HOST: postgres-db
+    depends_on:
+      - postgres-db
+
+volumes:
+  mysql_data:
+  postgres_data:
+
