@@ -4,6 +4,8 @@ from typing import Dict, List
 
 import requests
 
+from app.behavior_client import send_behavior_event
+
 LAPTOP_SERVICE_URL = os.getenv("LAPTOP_SERVICE_URL", "http://laptop-service:8000")
 MOBILE_SERVICE_URL = os.getenv("MOBILE_SERVICE_URL", "http://mobile-service:8000")
 PC_SERVICE_URL = os.getenv("PC_SERVICE_URL", "http://pc-service:8000")
@@ -102,10 +104,21 @@ def _search(base_url: str, query: str) -> List[Dict]:
         return []
 
 
-def recommend_products(intent: Dict) -> List[Dict]:
+def recommend_products(intent: Dict, user_id: str | None = None) -> List[Dict]:
     raw_query = intent.get("raw", "")
     query = _extract_search_query(raw_query)
     budget_vnd = _extract_budget_vnd(raw_query)
+    category_hint = _category_hint(query)
+
+    if user_id and query:
+        send_behavior_event(
+            user_id=user_id,
+            event_type="search",
+            product_category=category_hint or "unknown",
+            query_text=query,
+            extracted_budget_vnd=budget_vnd,
+            metadata={"source": "ai-recommend"},
+        )
 
     # Only recommend when we can derive a concrete search query.
     # This prevents random/all-catalog suggestions.
@@ -126,8 +139,7 @@ def recommend_products(intent: Dict) -> List[Dict]:
 
         # If nothing matched after strict budget filter, broaden by category keyword.
         if not items:
-            hint = _category_hint(query)
-            fallback_query = hint if hint else query
+            fallback_query = category_hint if category_hint else query
             fallback_items: List[Dict] = []
             for source in sources:
                 fallback_items.extend(_search(source, fallback_query))

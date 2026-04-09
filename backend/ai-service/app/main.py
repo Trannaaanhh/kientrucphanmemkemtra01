@@ -5,6 +5,7 @@ import jwt
 from fastapi import Header, HTTPException
 from pydantic import BaseModel
 
+from app.behavior_client import send_behavior_event
 from app.memory_store import append_history, get_user_history, list_histories
 from app.pipeline import run_pipeline
 from app.rag import build_rag_debug, get_kb_documents
@@ -42,6 +43,12 @@ def health():
 def chat(req: ChatRequest):
     user_id = str(req.user_id)
     append_history(user_id, "user", req.message)
+    send_behavior_event(
+        user_id=user_id,
+        event_type="chat_query",
+        query_text=req.message,
+        metadata={"source": "ai-chat"},
+    )
 
     result = run_pipeline(req.message, user_id)
     assistant_text = result.get("response") or result.get("message") or str(result)

@@ -2,23 +2,41 @@ services:
   gateway-service:
     build: ./gateway-service
     container_name: gateway-service
+    restart: unless-stopped
     ports:
       - "8080:80"
     environment:
       PC_SERVICE_URL: http://pc-service:8000
     depends_on:
-      - ai-service
-      - customer-service
-      - staff-service
-      - laptop-service
-      - mobile-service
-      - pc-service
+      ai-service:
+        condition: service_healthy
+      behavior-service:
+        condition: service_healthy
+      kb-service:
+        condition: service_healthy
+      customer-service:
+        condition: service_started
+      staff-service:
+        condition: service_started
+      laptop-service:
+        condition: service_started
+      mobile-service:
+        condition: service_started
+      pc-service:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
 
 
   customer-service:
     build: ./customer-service
     container_name: customer-service
+    restart: unless-stopped
     environment:
       DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
       DB_ENGINE: ${CUSTOMER_DB_ENGINE:-mysql}
@@ -33,6 +51,7 @@ services:
   staff-service:
     build: ./staff-service
     container_name: staff-service
+    restart: unless-stopped
     environment:
       DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
       DB_ENGINE: ${STAFF_DB_ENGINE:-mysql}
@@ -50,6 +69,7 @@ services:
   laptop-service:
     build: ./laptop-service
     container_name: laptop-service
+    restart: unless-stopped
     environment:
       DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
       DB_ENGINE: ${LAPTOP_DB_ENGINE:-postgres}
@@ -64,6 +84,7 @@ services:
   mobile-service:
     build: ./mobile-service
     container_name: mobile-service
+    restart: unless-stopped
     environment:
       DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
       DB_ENGINE: ${MOBILE_DB_ENGINE:-postgres}
@@ -78,6 +99,7 @@ services:
   pc-service:
     build: ./pc-service
     container_name: pc-service
+    restart: unless-stopped
     environment:
       DJANGO_DEBUG: ${DJANGO_DEBUG:-1}
       DB_ENGINE: ${PC_DB_ENGINE:-postgres}
@@ -103,6 +125,12 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
       - ./db-init/mysql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "${MYSQL_USER:-appuser}", "-p${MYSQL_PASSWORD:-apppass}"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   postgres-db:
     image: postgres:16
@@ -117,6 +145,12 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db-init/postgres:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER:-appuser} -d ${POSTGRES_DB:-laptop_db}"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
 
   redis-db:
     image: redis:alpine
@@ -124,18 +158,30 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 20s
+      timeout: 5s
+      retries: 8
+      start_period: 10s
 
   cart-service:
     build: ./cart-service
     container_name: cart-service
+    restart: unless-stopped
     environment:
       REDIS_HOST: redis-db
+      BEHAVIOR_SERVICE_URL: http://behavior-service:8000
     depends_on:
-      - redis-db
+      redis-db:
+        condition: service_healthy
+      behavior-service:
+        condition: service_healthy
 
   order-service:
     build: ./order-service
     container_name: order-service
+    restart: unless-stopped
     environment:
       DB_HOST: postgres-db
       INVENTORY_SERVICE_URL: http://inventory-service:8000
@@ -144,43 +190,113 @@ services:
       MOBILE_SERVICE_URL: http://mobile-service:8000
       PC_SERVICE_URL: http://pc-service:8000
       CART_SERVICE_URL: http://cart-service:8000
+      BEHAVIOR_SERVICE_URL: http://behavior-service:8000
     depends_on:
-      - inventory-service
-      - payment-service
-      - postgres-db
-      - pc-service
+      inventory-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      postgres-db:
+        condition: service_healthy
+      pc-service:
+        condition: service_started
+      behavior-service:
+        condition: service_healthy
 
   ai-service:
     build: ./ai-service
     container_name: ai-service
+    restart: unless-stopped
     environment:
+      JWT_SECRET: ${JWT_SECRET:-dev-gateway-secret}
       CART_SERVICE_URL: http://cart-service:8000
       ORDER_SERVICE_URL: http://order-service:8000
       LAPTOP_SERVICE_URL: http://laptop-service:8000
       MOBILE_SERVICE_URL: http://mobile-service:8000
       PC_SERVICE_URL: http://pc-service:8000
+      BEHAVIOR_SERVICE_URL: http://behavior-service:8000
+      KB_SERVICE_URL: http://kb-service:8000
     depends_on:
-      - cart-service
-      - order-service
-      - laptop-service
-      - mobile-service
-      - pc-service
+      cart-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      laptop-service:
+        condition: service_started
+      mobile-service:
+        condition: service_started
+      pc-service:
+        condition: service_started
+      behavior-service:
+        condition: service_healthy
+      kb-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  behavior-service:
+    build: ./behavior-service
+    container_name: behavior-service
+    restart: unless-stopped
+    environment:
+      BEHAVIOR_DB_HOST: postgres-db
+      BEHAVIOR_DB_PORT: 5432
+      BEHAVIOR_DB_NAME: behavior_db
+      BEHAVIOR_DB_USER: ${POSTGRES_USER:-appuser}
+      BEHAVIOR_DB_PASSWORD: ${POSTGRES_PASSWORD:-apppass}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  kb-service:
+    build: ./kb-service
+    container_name: kb-service
+    restart: unless-stopped
+    environment:
+      KB_DB_HOST: postgres-db
+      KB_DB_PORT: 5432
+      KB_DB_NAME: kb_db
+      KB_DB_USER: ${POSTGRES_USER:-appuser}
+      KB_DB_PASSWORD: ${POSTGRES_PASSWORD:-apppass}
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   inventory-service:
     build: ./inventory-service
     container_name: inventory-service
+    restart: unless-stopped
     environment:
       DB_HOST: postgres-db
     depends_on:
-      - postgres-db
+      postgres-db:
+        condition: service_healthy
 
   payment-service:
     build: ./payment-service
     container_name: payment-service
+    restart: unless-stopped
     environment:
       DB_HOST: postgres-db
     depends_on:
-      - postgres-db
+      postgres-db:
+        condition: service_healthy
 
 volumes:
   mysql_data:

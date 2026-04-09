@@ -16,6 +16,8 @@ Core services:
 - payment-service: thanh toan
 - cart-service: gio hang
 - ai-service: intent + recommendation + hybrid RAG + memory
+- behavior-service: user behavior ingestion + segment prediction
+- kb-service: knowledge base CRUD + retrieval ranking
 
 Databases:
 - MySQL: customer-service, staff-service
@@ -59,6 +61,12 @@ AI:
 - GET /ai/kb (staff)
 - GET /ai/kb/debug?query=... (staff)
 
+KB + Behavior:
+- GET /kb/health
+- GET /kb/search?query=...&top_k=3
+- POST /behavior/events
+- POST /behavior/predict
+
 ## Tai khoan demo
 
 - Customer: customer@example.com / customer123
@@ -74,3 +82,6 @@ AI:
 
 Huong dan tong quan du an:
 - ../doc/PROJECT_GUIDE.md
+
+Huong dan deploy/van hanh:
+- ../doc/DEPLOYMENT_RUNBOOK.md

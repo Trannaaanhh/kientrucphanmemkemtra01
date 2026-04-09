@@ -13,6 +13,39 @@ PAYMENT_URL = os.getenv("PAYMENT_SERVICE_URL", "http://payment-service:8000")
 LAPTOP_URL = os.getenv("LAPTOP_SERVICE_URL", "http://laptop-service:8000")
 MOBILE_URL = os.getenv("MOBILE_SERVICE_URL", "http://mobile-service:8000")
 CART_URL = os.getenv("CART_SERVICE_URL", "http://cart-service:8000")
+BEHAVIOR_SERVICE_URL = os.getenv("BEHAVIOR_SERVICE_URL", "http://behavior-service:8000")
+
+
+def _infer_category(product_id: str) -> str:
+    pid = str(product_id).lower()
+    if pid.startswith("l"):
+        return "laptop"
+    if pid.startswith("m"):
+        return "mobile"
+    if pid.startswith("p"):
+        return "pc"
+    return "unknown"
+
+
+def _emit_behavior_event(
+    customer_id: str,
+    event_type: str,
+    product_id: str | None = None,
+    quantity: int = 1,
+    metadata: dict | None = None,
+):
+    payload = {
+        "user_id": str(customer_id),
+        "event_type": event_type,
+        "product_id": product_id,
+        "product_category": _infer_category(product_id) if product_id else "unknown",
+        "quantity": max(int(quantity or 1), 1),
+        "metadata": metadata or {"source": "order-service"},
+    }
+    try:
+        requests.post(f"{BEHAVIOR_SERVICE_URL}/behavior/events", json=payload, timeout=2)
+    except requests.exceptions.RequestException:
+        return
 
 
 def _find_product_price(product_id: str) -> int:
@@ -65,6 +98,24 @@ def _create_order_from_items(customer_id: str, items: list, total_amount):
         if pay_resp.ok and pay_data.get('status') == 'SUCCESS':
             order.status = 'PAID'
             order.save()
+            _emit_behavior_event(
+                customer_id,
+                "purchase",
+                metadata={
+                    "source": "order-service",
+                    "order_id": order.id,
+                    "total_amount": float(total_amount),
+                    "item_count": len(items),
+                },
+            )
+            for item in items:
+                _emit_behavior_event(
+                    customer_id,
+                    "purchase",
+                    product_id=item.get("product_id"),
+                    quantity=int(item.get("quantity", 1)),
+                    metadata={"source": "order-service", "order_id": order.id},
+                )
             # 5. Deduct stock upon successful payment
             requests.post(f"{INVENTORY_URL}/inventory/deduct", json={"items": items}, timeout=3)
             return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)

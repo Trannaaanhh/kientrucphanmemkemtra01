@@ -37,6 +37,8 @@ Thu muc quan trong:
 - order-service
 - payment-service
 - ai-service
+- behavior-service
+- kb-service
 
 ## 4. Kien truc va data flow
 
@@ -48,7 +50,7 @@ Luong tong quan:
 
 Database:
 - MySQL: customer-service, staff-service
-- PostgreSQL: laptop-service, mobile-service, pc-service, order-service, payment-service, inventory-service
+- PostgreSQL: laptop-service, mobile-service, pc-service, order-service, payment-service, inventory-service, behavior-service, kb-service
 - Redis: cart-service
 
 ## 5. Chuc nang hien co
@@ -80,6 +82,10 @@ AI:
 - memory lich su hoi thoai
 - endpoint quan tri KB: /ai/kb va /ai/kb/debug (staff token)
 
+Behavior + KB:
+- behavior-service thu thap event va du doan segment
+- kb-service quan ly tri thuc, rank tai lieu va phuc vu retrieval cho RAG
+
 ## 6. API chinh
 
 Auth:
@@ -104,6 +110,15 @@ AI:
 - GET /ai/history (staff)
 - GET /ai/kb (staff)
 - GET /ai/kb/debug?query=... (staff)
+
+Behavior:
+- POST /behavior/events
+- POST /behavior/predict
+- GET /behavior/profile/{user_id}
+
+KB:
+- GET /kb/documents
+- GET /kb/search?query=...&top_k=3
 
 ## 7. Cach chay du an
 
@@ -140,3 +155,6 @@ Chay frontend (tu frontend):
 - Bo sung bo test tich hop lien service.
 - Cai tien ranker trong RAG bang embedding/vector database.
 - Bo sung governance cho knowledge base (versioning va review workflow).
+
+Tai lieu van hanh/deploy:
+- DEPLOYMENT_RUNBOOK.md
